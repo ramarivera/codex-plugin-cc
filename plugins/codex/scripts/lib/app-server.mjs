@@ -21,6 +21,8 @@ const PLUGIN_MANIFEST = JSON.parse(fs.readFileSync(PLUGIN_MANIFEST_URL, "utf8"))
 
 export const BROKER_ENDPOINT_ENV = "CODEX_COMPANION_APP_SERVER_ENDPOINT";
 export const BROKER_BUSY_RPC_CODE = -32001;
+const MCP_SERVER_ELICITATION_REQUEST_METHOD = "mcpServer/elicitation/request";
+const MCP_TOOL_APPROVAL_KIND = "mcp_tool_call";
 
 /** @type {ClientInfo} */
 const DEFAULT_CLIENT_INFO = {
@@ -43,6 +45,32 @@ const DEFAULT_CAPABILITIES = {
 
 function buildJsonRpcError(code, message, data) {
   return data === undefined ? { code, message } : { code, message, data };
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isEmptyObjectSchema(schema) {
+  return isPlainObject(schema) && schema.type === "object" && isPlainObject(schema.properties) && Object.keys(schema.properties).length === 0;
+}
+
+function isMcpToolApprovalElicitation(message) {
+  const params = message?.params;
+  return (
+    message?.method === MCP_SERVER_ELICITATION_REQUEST_METHOD &&
+    params?.mode === "form" &&
+    params?._meta?.codex_approval_kind === MCP_TOOL_APPROVAL_KIND &&
+    isEmptyObjectSchema(params?.requestedSchema)
+  );
+}
+
+function buildMcpToolApprovalResponse() {
+  return {
+    action: "accept",
+    content: null,
+    _meta: null
+  };
 }
 
 function createProtocolError(message, data) {
@@ -154,6 +182,14 @@ class AppServerClientBase {
   }
 
   handleServerRequest(message) {
+    if (isMcpToolApprovalElicitation(message)) {
+      this.sendMessage({
+        id: message.id,
+        result: buildMcpToolApprovalResponse()
+      });
+      return;
+    }
+
     this.sendMessage({
       id: message.id,
       error: buildJsonRpcError(-32601, `Unsupported server request: ${message.method}`)

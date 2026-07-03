@@ -19,7 +19,7 @@ const readline = require("node:readline");
 
 	function loadState() {
 	  if (!fs.existsSync(STATE_PATH)) {
-	    return { nextThreadId: 1, nextTurnId: 1, appServerStarts: 0, threads: [], capabilities: null, lastInterrupt: null };
+	    return { nextThreadId: 1, nextTurnId: 1, appServerStarts: 0, threads: [], capabilities: null, lastInterrupt: null, serverRequestResponses: [] };
 	  }
 	  return JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
 	}
@@ -283,6 +283,13 @@ rl.on("line", (line) => {
   const message = JSON.parse(line);
   const state = loadState();
 
+  if (message.id !== undefined && !message.method) {
+    state.serverRequestResponses = state.serverRequestResponses || [];
+    state.serverRequestResponses.push(message);
+    saveState(state);
+    return;
+  }
+
   try {
     switch (message.method) {
       case "initialize":
@@ -312,8 +319,12 @@ rl.on("line", (line) => {
         if (requiresExperimental("persistExtendedHistory", message, state) || requiresExperimental("persistFullHistory", message, state)) {
           throw new Error("thread/start.persistFullHistory requires experimentalApi capability");
         }
+        state.lastThreadStart = {
+          approvalPolicy: message.params.approvalPolicy ?? null,
+          sandbox: message.params.sandbox ?? null
+        };
         const thread = nextThread(state, message.params.cwd, message.params.ephemeral);
-        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.4", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
+        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.4", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: message.params.approvalPolicy ?? "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
         send({ method: "thread/started", params: { thread: { id: thread.id } } });
         break;
       }
@@ -346,8 +357,12 @@ rl.on("line", (line) => {
         }
         const thread = ensureThread(state, message.params.threadId);
         thread.updatedAt = now();
+        state.lastThreadResume = {
+          approvalPolicy: message.params.approvalPolicy ?? null,
+          sandbox: message.params.sandbox ?? null
+        };
         saveState(state);
-        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.4", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
+        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.4", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: message.params.approvalPolicy ?? "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
         break;
       }
 
@@ -457,6 +472,37 @@ rl.on("line", (line) => {
         const payload = message.params.outputSchema && message.params.outputSchema.properties && message.params.outputSchema.properties.verdict
           ? structuredReviewPayload(prompt)
           : taskPayload(prompt, thread.name && thread.name.startsWith("Codex Companion Task") && prompt.includes("Continue from the current thread state"));
+
+        if (BEHAVIOR === "mcp-approval") {
+          send({
+            id: 0,
+            method: "mcpServer/elicitation/request",
+            params: {
+              threadId: thread.id,
+              turnId,
+              serverName: "remnic",
+              mode: "form",
+              _meta: {
+                codex_approval_kind: "mcp_tool_call",
+                persist: ["session", "always"],
+                tool_description: "Recall Engram context for a query.",
+                tool_params: {
+                  query: "codex-plugin-cc MCP approval discovery",
+                  cwd: thread.cwd
+                },
+                tool_params_display: [
+                  { name: "cwd", value: thread.cwd, display_name: "cwd" },
+                  { name: "query", value: "codex-plugin-cc MCP approval discovery", display_name: "query" }
+                ]
+              },
+              message: "Allow the remnic MCP server to run tool \\"remnic.recall\\"?",
+              requestedSchema: {
+                type: "object",
+                properties: {}
+              }
+            }
+          });
+        }
 
         if (
           BEHAVIOR === "with-subagent" ||
@@ -600,6 +646,8 @@ rl.on("line", (line) => {
 	            send({ method: "turn/completed", params: { threadId: thread.id, turn: buildTurn(turnId, "completed") } });
 	          }, 5000);
 	          interruptibleTurns.set(turnId, { threadId: thread.id, timer });
+	        } else if (BEHAVIOR === "mcp-approval") {
+	          emitTurnCompletedLater(thread.id, turnId, items, 50);
 	        } else if (BEHAVIOR === "slow-task") {
 	          emitTurnCompletedLater(thread.id, turnId, items, 400);
 	        } else {
