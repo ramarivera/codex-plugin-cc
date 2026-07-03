@@ -801,6 +801,7 @@ test("task accepts MCP tool approval elicitations from app-server", () => {
 
   assert.equal(result.status, 0, result.stderr);
   const fakeState = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  assert.equal(fakeState.capabilities.mcpServerOpenaiFormElicitation, true);
   assert.equal(fakeState.lastThreadStart.approvalPolicy, "on-request");
   assert.deepEqual(fakeState.serverRequestResponses, [
     {

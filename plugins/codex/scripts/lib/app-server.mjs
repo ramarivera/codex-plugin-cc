@@ -34,6 +34,7 @@ const DEFAULT_CLIENT_INFO = {
 /** @type {InitializeCapabilities} */
 const DEFAULT_CAPABILITIES = {
   experimentalApi: false,
+  mcpServerOpenaiFormElicitation: true,
   requestAttestation: false,
   optOutNotificationMethods: [
     "item/agentMessage/delta",
