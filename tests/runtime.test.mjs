@@ -221,7 +221,9 @@ test("transfer delegates the current Claude session directly to native import", 
       ...buildEnv(binDir),
       HOME: home,
       CODEX_HOME: path.join(home, ".codex"),
-      CODEX_COMPANION_TRANSCRIPT_PATH: sourcePath
+      CODEX_COMPANION_TRANSCRIPT_PATH: sourcePath,
+      // Clear CLAUDE_CONFIG_DIR so the security check uses HOME/.claude/projects.
+      CLAUDE_CONFIG_DIR: undefined
     }
   });
 
@@ -265,7 +267,9 @@ test("transfer reports an actionable upgrade error when native import is unsuppo
     env: {
       ...buildEnv(binDir),
       HOME: home,
-      CODEX_HOME: path.join(home, ".codex")
+      CODEX_HOME: path.join(home, ".codex"),
+      // Clear CLAUDE_CONFIG_DIR so the security check uses HOME/.claude/projects.
+      CLAUDE_CONFIG_DIR: undefined
     }
   });
 
@@ -295,7 +299,10 @@ test("transfer fails visibly when native import completes without a ledger recor
     env: {
       ...buildEnv(binDir),
       HOME: home,
-      CODEX_HOME: path.join(home, ".codex")
+      CODEX_HOME: path.join(home, ".codex"),
+      // Clear CLAUDE_CONFIG_DIR so the module resolves projects relative to HOME
+      // rather than inheriting a non-default config dir from the parent process.
+      CLAUDE_CONFIG_DIR: undefined
     }
   });
 
@@ -320,7 +327,9 @@ test("transfer rejects sources outside the Claude projects directory", () => {
 
   const result = run("node", [SCRIPT, "transfer", "--source", sourcePath], {
     cwd: repo,
-    env: { ...buildEnv(binDir), HOME: home }
+    // Clear CLAUDE_CONFIG_DIR so the module resolves projects relative to HOME
+    // rather than inheriting a non-default config dir from the parent process.
+    env: { ...buildEnv(binDir), HOME: home, CLAUDE_CONFIG_DIR: undefined }
   });
 
   assert.notEqual(result.status, 0);

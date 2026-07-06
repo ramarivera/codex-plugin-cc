@@ -13,7 +13,7 @@ import {
   sendBrokerShutdown,
   teardownBrokerSession
 } from "./lib/broker-lifecycle.mjs";
-import { loadState, resolveStateFile, saveState } from "./lib/state.mjs";
+import { loadState, resolveStateFile, saveState, setConfig } from "./lib/state.mjs";
 import { TRANSCRIPT_PATH_ENV } from "./lib/claude-session-transfer.mjs";
 import { resolveWorkspaceRoot } from "./lib/workspace.mjs";
 
@@ -78,6 +78,18 @@ function handleSessionStart(input) {
   appendEnvVar(SESSION_ID_ENV, input.session_id);
   appendEnvVar(TRANSCRIPT_PATH_ENV, input.transcript_path);
   appendEnvVar(PLUGIN_DATA_ENV, process.env[PLUGIN_DATA_ENV]);
+  // Persist the transcript path to the plugin state file so that /codex:transfer
+  // can resolve it even when CLAUDE_ENV_FILE injection is not honoured (e.g.
+  // on SessionStart:resume events or older Claude Code versions).
+  if (input.transcript_path) {
+    try {
+      const cwd = input.cwd || process.cwd();
+      const workspaceRoot = resolveWorkspaceRoot(cwd);
+      setConfig(workspaceRoot, "lastTranscriptPath", input.transcript_path);
+    } catch {
+      // Non-fatal: the env var and newest-jsonl heuristic remain as fallbacks.
+    }
+  }
 }
 
 async function handleSessionEnd(input) {
