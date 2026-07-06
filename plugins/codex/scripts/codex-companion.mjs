@@ -71,6 +71,26 @@ const DEFAULT_STATUS_POLL_INTERVAL_MS = 2000;
 const VALID_REASONING_EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh"]);
 const MODEL_ALIASES = new Map([["spark", "gpt-5.3-codex-spark"]]);
 const STOP_REVIEW_TASK_MARKER = "Run a stop-gate review of the previous Claude turn.";
+// Runtime attestation: only this script can stamp its version banner onto rendered
+// output, so an orchestrator can distinguish a real companion run from a Claude
+// subagent that never loaded the codex-rescue definition (the silent-fallback trap
+// observed 2026-07-06: unresolved plugin agent defs degrade to a generic full-tool
+// Sonnet subagent with no error).
+const COMPANION_VERSION = (() => {
+  try {
+    const manifestPath = path.join(ROOT_DIR, ".claude-plugin", "plugin.json");
+    return JSON.parse(fs.readFileSync(manifestPath, "utf8")).version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
+
+function companionBanner(payload) {
+  const threadId = payload && typeof payload.threadId === "string" && payload.threadId
+    ? ` thread=${payload.threadId}`
+    : "";
+  return `[codex-companion v${COMPANION_VERSION}${threadId}]`;
+}
 
 function printUsage() {
   console.log(
@@ -661,7 +681,11 @@ async function runForegroundCommand(job, runner, options = {}) {
     stderr: !options.json
   });
   const execution = await runTrackedJob(job, () => runner(progress), { logFile });
-  outputResult(options.json ? execution.payload : execution.rendered, options.json);
+  outputCommandResult(
+    execution.payload,
+    `${companionBanner(execution.payload)}\n${execution.rendered}`,
+    options.json
+  );
   if (execution.exitStatus !== 0) {
     process.exitCode = execution.exitStatus;
   }
@@ -800,7 +824,11 @@ async function handleTask(argv) {
       jobId: job.id
     });
     const { payload } = enqueueBackgroundTask(cwd, job, request);
-    outputCommandResult(payload, renderQueuedTaskLaunch(payload), options.json);
+    outputCommandResult(
+      payload,
+      `${companionBanner(payload)}\n${renderQueuedTaskLaunch(payload)}`,
+      options.json
+    );
     return;
   }
 

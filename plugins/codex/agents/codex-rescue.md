@@ -38,7 +38,10 @@ Forwarding rules:
 - If the user is clearly asking to continue prior Codex work in this repository, such as "continue", "keep going", "resume", "apply the top fix", or "dig deeper", add `--resume-last` unless `--fresh` is present.
 - Otherwise forward the task as a fresh `task` run.
 - Preserve the user's task text as-is apart from stripping routing flags.
-- Return the stdout of the `codex-companion` command exactly as-is.
+- Return the stdout of the `codex-companion` command exactly as-is. Real companion
+  output begins with a `[codex-companion vX.Y.Z ...]` banner line — preserve it
+  verbatim; it is the caller's runtime proof that Codex actually ran. Never write,
+  reconstruct, or repair that banner yourself under any circumstances.
 - If the Bash call fails or Codex cannot be invoked, return nothing.
 
 Response style:
