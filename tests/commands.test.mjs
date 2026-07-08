@@ -91,7 +91,7 @@ test("rescue command absorbs continue semantics", () => {
   const runtimeSkill = read("skills/codex-cli-runtime/SKILL.md");
 
   assert.match(rescue, /The final user-visible response must be Codex's output verbatim/i);
-  assert.match(rescue, /allowed-tools:\s*Bash\(node:\*\),\s*AskUserQuestion,\s*Agent/);
+  assert.match(rescue, /allowed-tools:\s*Bash\(node:\*\),\s*Bash\(node \*\),\s*AskUserQuestion,\s*Agent/);
   // Regression for #234: `Skill(codex:rescue)` from the main agent recursed
   // because rescue.md named the routing with ambiguous prose ("Route this
   // request to the `codex:codex-rescue` subagent") while running under
@@ -129,15 +129,23 @@ test("rescue command absorbs continue semantics", () => {
   assert.match(agent, /thin forwarding wrapper/i);
   assert.match(agent, /prefer foreground for a small, clearly bounded rescue request/i);
   assert.match(agent, /If the user did not explicitly choose `--background` or `--wait` and the task looks complicated, open-ended, multi-step, or likely to keep Codex running for a long time, prefer background execution/i);
+  assert.match(agent, /If the incoming request is a large implementation spec, multi-step plan, or otherwise not a short rescue request/i);
+  assert.match(agent, /do not implement it inline and do not reject it/i);
+  assert.match(agent, /Forward the full task text to the companion exactly as for any other request/i);
   assert.match(agent, /Use exactly one `Bash` call/i);
   assert.match(agent, /Do not inspect the repository, read files, grep, monitor progress, poll status, fetch results, cancel jobs, summarize output, or do any follow-up work of your own/i);
+  assert.match(agent, /Under no circumstances do you read repo files, edit files, or do the requested work yourself/i);
+  assert.match(agent, /fetch those texts directly to a file via shell/i);
   assert.match(agent, /Do not call `review`, `adversarial-review`, `status`, `result`, or `cancel`/i);
   assert.match(agent, /Leave `--effort` unset unless the user explicitly requests a specific reasoning effort/i);
   assert.match(agent, /Leave model unset by default/i);
   assert.match(agent, /If the user asks for `spark`, map that to `--model gpt-5\.3-codex-spark`/i);
   assert.match(agent, /If the user asks for a concrete model name such as `gpt-5\.4-mini`, pass it through with `--model`/i);
   assert.match(agent, /Return the stdout of the `codex-companion` command exactly as-is/i);
-  assert.match(agent, /If the Bash call fails or Codex cannot be invoked, return nothing/i);
+  assert.match(agent, /return exactly one structured diagnostic line and nothing else/i);
+  assert.match(agent, /\[codex-rescue\] FAILED: <stage> — <error summary>/);
+  assert.match(agent, /must stay clearly distinct from the real `\[codex-companion vX\.Y\.Z \.\.\.\]` banner/i);
+  assert.doesNotMatch(agent, /return nothing/i);
   assert.match(agent, /gpt-5-4-prompting/);
   assert.match(agent, /only to tighten the user's request into a better Codex prompt/i);
   assert.match(agent, /Do not use that skill to inspect the repository, reason through the problem yourself, draft a solution, or do any independent work/i);
@@ -152,7 +160,11 @@ test("rescue command absorbs continue semantics", () => {
   assert.match(runtimeSkill, /Strip it before calling `task`/i);
   assert.match(runtimeSkill, /`--effort`: accepted values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`/i);
   assert.match(runtimeSkill, /Do not inspect the repository, read files, grep, monitor progress, poll status, fetch results, cancel jobs, summarize output, or do any follow-up work of your own/i);
-  assert.match(runtimeSkill, /If the Bash call fails or Codex cannot be invoked, return nothing/i);
+  assert.match(runtimeSkill, /forward the full task text to `task`; do not implement it inline and do not reject it/i);
+  assert.match(runtimeSkill, /fetch those texts directly to a file via shell/i);
+  assert.match(runtimeSkill, /return exactly one structured diagnostic line and nothing else/i);
+  assert.match(runtimeSkill, /\[codex-rescue\] FAILED: <stage> — <error summary>/);
+  assert.doesNotMatch(runtimeSkill, /return nothing/i);
   assert.match(readme, /`codex:codex-rescue` subagent/i);
   assert.match(readme, /if you do not pass `--model` or `--effort`, Codex chooses its own defaults/i);
   assert.match(readme, /--model gpt-5\.4-mini --effort medium/i);
@@ -177,6 +189,7 @@ test("transfer, result, and cancel commands are exposed as deterministic runtime
   const resultHandling = read("skills/codex-result-handling/SKILL.md");
 
   assert.match(transfer, /disable-model-invocation:\s*true/);
+  assert.match(transfer, /model:\s*haiku/);
   assert.match(transfer, /codex-companion\.mjs" transfer "\$ARGUMENTS"/);
   assert.match(transfer, /codex resume <session-id>/);
   assert.match(result, /disable-model-invocation:\s*true/);

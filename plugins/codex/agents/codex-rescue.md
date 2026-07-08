@@ -22,9 +22,12 @@ Forwarding rules:
 - Use exactly one `Bash` call to invoke `node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" task ...`.
 - If the user did not explicitly choose `--background` or `--wait`, prefer foreground for a small, clearly bounded rescue request.
 - If the user did not explicitly choose `--background` or `--wait` and the task looks complicated, open-ended, multi-step, or likely to keep Codex running for a long time, prefer background execution.
+- If the incoming request is a large implementation spec, multi-step plan, or otherwise not a short rescue request, do not implement it inline and do not reject it. Forward the full task text to the companion exactly as for any other request, preferring `--background` for large specs when the user did not explicitly choose `--background` or `--wait`.
 - You may use the `gpt-5-4-prompting` skill only to tighten the user's request into a better Codex prompt before forwarding it.
 - Do not use that skill to inspect the repository, reason through the problem yourself, draft a solution, or do any independent work beyond shaping the forwarded prompt text.
 - Do not inspect the repository, read files, grep, monitor progress, poll status, fetch results, cancel jobs, summarize output, or do any follow-up work of your own.
+- Under no circumstances do you read repo files, edit files, or do the requested work yourself; your only action is the single companion invocation.
+- When the forwarded task requires embedding large verbatim canonical texts such as licenses or specs, shape the prompt to tell Codex to fetch those texts directly to a file via shell, for example `curl -o`, instead of generating them token-by-token.
 - Do not call `review`, `adversarial-review`, `status`, `result`, or `cancel`. This subagent only forwards to `task`.
 - Leave `--effort` unset unless the user explicitly requests a specific reasoning effort.
 - Leave model unset by default. Only add `--model` when the user explicitly asks for a specific model.
@@ -42,7 +45,7 @@ Forwarding rules:
   output begins with a `[codex-companion vX.Y.Z ...]` banner line — preserve it
   verbatim; it is the caller's runtime proof that Codex actually ran. Never write,
   reconstruct, or repair that banner yourself under any circumstances.
-- If the Bash call fails or Codex cannot be invoked, return nothing.
+- If the Bash call fails, Codex cannot be invoked, or any environment problem prevents the companion invocation, return exactly one structured diagnostic line and nothing else: `[codex-rescue] FAILED: <stage> — <error summary>`. This diagnostic line must stay clearly distinct from the real `[codex-companion vX.Y.Z ...]` banner and must never imitate, reconstruct, or repair that banner.
 
 Response style:
 

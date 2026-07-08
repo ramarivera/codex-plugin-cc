@@ -372,8 +372,30 @@ rl.on("line", (line) => {
           break;
         }
         if (BEHAVIOR === "external-import-fails") {
-          send({ id: message.id, result: {} });
-          send({ method: "externalAgentConfig/import/completed", params: {} });
+          const importId = "import_failed";
+          send({ id: message.id, result: { importId } });
+          send({
+            method: "externalAgentConfig/import/completed",
+            params: {
+              importId,
+              itemTypeResults: [
+                {
+                  itemType: "SESSIONS",
+                  successes: [],
+                  failures: [
+                    {
+                      itemType: "SESSIONS",
+                      errorType: null,
+                      failureStage: "session_source_path",
+                      message: "Not a directory (os error 20)",
+                      cwd: null,
+                      source: "missing-session.jsonl"
+                    }
+                  ]
+                }
+              ]
+            }
+          });
           break;
         }
         const sessions = (message.params.migrationItems || [])
@@ -414,8 +436,28 @@ rl.on("line", (line) => {
           saveState(state);
           saveImportLedger(ledger);
         }
-        send({ id: message.id, result: {} });
-        send({ method: "externalAgentConfig/import/completed", params: {} });
+        const importId = "import_" + thread.id;
+        send({ id: message.id, result: { importId } });
+        send({
+          method: "externalAgentConfig/import/completed",
+          params: {
+            importId,
+            itemTypeResults: [
+              {
+                itemType: "SESSIONS",
+                successes: [
+                  {
+                    itemType: "SESSIONS",
+                    cwd: session.cwd ?? null,
+                    source: sourcePath,
+                    target: thread.id
+                  }
+                ],
+                failures: []
+              }
+            ]
+          }
+        });
         break;
       }
 

@@ -246,6 +246,60 @@ test("transfer delegates the current Claude session directly to native import", 
   );
 });
 
+test("transfer imports CLAUDE_CONFIG_DIR sessions without touching file-backed HOME/.claude", () => {
+  const home = makeTempDir();
+  const repo = path.join(home, "repo");
+  const binDir = makeTempDir();
+  const sessionId = "sess-config-dir-transfer";
+  const claudeConfigDir = path.join(home, ".config", "claude");
+  const projectDir = path.join(claudeConfigDir, "projects", "-repo");
+  const sourcePath = path.join(projectDir, `${sessionId}.jsonl`);
+  const fileBackedClaudePath = path.join(home, ".claude");
+  fs.mkdirSync(repo, { recursive: true });
+  fs.mkdirSync(projectDir, { recursive: true });
+  fs.writeFileSync(fileBackedClaudePath, "not a directory\n", "utf8");
+  installFakeCodex(binDir);
+  initGitRepo(repo);
+
+  fs.writeFileSync(
+    sourcePath,
+    [
+      { type: "custom-title", customTitle: "Config dir transfer" },
+      { type: "user", cwd: repo, message: { role: "user", content: "Config dir request" } },
+      { type: "assistant", cwd: repo, message: { role: "assistant", content: "Config dir answer" } }
+    ].map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+    "utf8"
+  );
+  const result = run("node", [SCRIPT, "transfer", "--json"], {
+    cwd: repo,
+    env: {
+      ...buildEnv(binDir),
+      HOME: home,
+      CODEX_HOME: path.join(home, ".codex"),
+      CODEX_COMPANION_TRANSCRIPT_PATH: sourcePath,
+      CLAUDE_CONFIG_DIR: claudeConfigDir
+    }
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  const canonicalSourcePath = fs.realpathSync(sourcePath);
+  assert.equal(payload.threadId, "thr_1");
+  assert.equal(payload.sourcePath, canonicalSourcePath);
+  assert.equal(payload.sessionId, sessionId);
+
+  const fakeState = JSON.parse(fs.readFileSync(path.join(binDir, "fake-codex-state.json"), "utf8"));
+  assert.notEqual(fakeState.lastExternalAgentImport.sourcePath, canonicalSourcePath);
+  assert.match(fakeState.lastExternalAgentImport.sourcePath, /\/\.claude\/projects\/-repo\//);
+  assert.equal(fs.existsSync(fakeState.lastExternalAgentImport.sourcePath), false);
+  assert.equal(fs.statSync(fileBackedClaudePath).isFile(), true);
+  assert.equal(fs.readFileSync(fileBackedClaudePath, "utf8"), "not a directory\n");
+  assert.deepEqual(
+    fakeState.threads[0].visibleMessages.map((message) => message.text),
+    ["Config dir request", "Config dir answer"]
+  );
+});
+
 test("transfer reports an actionable upgrade error when native import is unsupported", () => {
   const home = makeTempDir();
   const repo = path.join(home, "repo");
@@ -307,7 +361,9 @@ test("transfer fails visibly when native import completes without a ledger recor
   });
 
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /did not record an imported thread/);
+  assert.match(result.stderr, /Codex could not import the Claude session/);
+  assert.match(result.stderr, /session_source_path/);
+  assert.match(result.stderr, /Not a directory/);
 });
 
 test("transfer rejects sources outside the Claude projects directory", () => {
