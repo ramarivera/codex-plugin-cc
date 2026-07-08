@@ -10,7 +10,7 @@ const PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
 const FALLBACK_STATE_ROOT_DIR = path.join(os.tmpdir(), "codex-companion");
 const STATE_FILE_NAME = "state.json";
 const JOBS_DIR_NAME = "jobs";
-const TRANSFER_RECEIPT_FILE_NAME = "last-transfer.json";
+const TRANSFER_RECEIPT_FILE_NAME = "codex-plugin-cc_last-transfer.json";
 const MAX_JOBS = 50;
 
 function nowIso() {

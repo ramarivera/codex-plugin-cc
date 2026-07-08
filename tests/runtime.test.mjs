@@ -234,7 +234,7 @@ test("transfer delegates the current Claude session directly to native import", 
   assert.equal(payload.resumeCommand, "codex resume thr_1");
   assert.equal(payload.sourcePath, canonicalSourcePath);
   assert.equal(payload.sessionId, sessionId);
-  assert.match(payload.receiptPath, /last-transfer\.json$/);
+  assert.match(payload.receiptPath, /codex-plugin-cc_last-transfer\.json$/);
 
   const receipt = readTransferReceipt(repo);
   assert.equal(receipt.threadId, "thr_1");
@@ -310,7 +310,7 @@ test("transfer imports CLAUDE_CONFIG_DIR sessions without touching file-backed H
   assert.equal(payload.threadId, "thr_1");
   assert.equal(payload.sourcePath, canonicalSourcePath);
   assert.equal(payload.sessionId, sessionId);
-  assert.match(payload.receiptPath, /last-transfer\.json$/);
+  assert.match(payload.receiptPath, /codex-plugin-cc_last-transfer\.json$/);
 
   const receipt = readTransferReceipt(repo);
   assert.equal(receipt.threadId, "thr_1");

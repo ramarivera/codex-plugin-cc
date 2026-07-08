@@ -177,10 +177,10 @@ Examples:
 
 The plugin's existing `SessionStart` hook supplies the current transcript path automatically; `--source` is available as a manual override. The transfer uses Codex's external-agent session importer, so it follows the same conversion rules as importing Claude history in the Codex App and creates visible turns that can be continued in the App or TUI. The source must be under `~/.claude/projects`, and older Codex versions that do not expose session import must be upgraded before using this command.
 
-Transfer writes a durable per-workspace receipt before Claude presents the response. If Claude Code hits a transient usage limit after the transfer has already run, recover the last resume command without a model turn:
+Transfer writes a durable per-workspace `codex-plugin-cc_last-transfer.json` receipt before Claude presents the response. If Claude Code hits a transient usage limit after the transfer has already run, recover the last resume command without a model turn:
 
 ```bash
-node ~/.config/claude/plugins/cache/openai-codex/codex/1.0.10/scripts/codex-companion.mjs last-transfer --cwd "$PWD"
+node ~/.config/claude/plugins/cache/openai-codex/codex/1.0.11/scripts/codex-companion.mjs last-transfer --cwd "$PWD"
 ```
 
 ### `/codex:status`

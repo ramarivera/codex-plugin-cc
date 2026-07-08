@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.11
+
+- Rename the transfer recovery receipt to `codex-plugin-cc_last-transfer.json` so it is easy to identify and ignore globally.
+
 ## 1.0.10
 
 - Persist a per-workspace `last-transfer.json` receipt after successful `/codex:transfer` imports and add a `last-transfer` companion CLI subcommand so the `codex resume <session-id>` command can be recovered even if Claude Code hits a transient usage limit before presenting the command output.
