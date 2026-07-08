@@ -30,9 +30,12 @@ import {
   generateJobId,
   getConfig,
   listJobs,
+  readTransferReceipt,
+  resolveTransferReceiptFile,
   setConfig,
   upsertJob,
-  writeJobFile
+  writeJobFile,
+  writeTransferReceipt
 } from "./lib/state.mjs";
 import {
   buildSingleJobSnapshot,
@@ -101,6 +104,7 @@ function printUsage() {
       "  node scripts/codex-companion.mjs adversarial-review [--wait|--background] [--base <ref>] [--scope <auto|working-tree|branch>] [focus text]",
       "  node scripts/codex-companion.mjs task [--background] [--write] [--resume-last|--resume|--fresh] [--model <model|spark>] [--effort <none|minimal|low|medium|high|xhigh>] [prompt]",
       "  node scripts/codex-companion.mjs transfer [--source <claude-jsonl>] [--json]",
+      "  node scripts/codex-companion.mjs last-transfer [--json]",
       "  node scripts/codex-companion.mjs status [job-id] [--all] [--json]",
       "  node scripts/codex-companion.mjs result [job-id] [--json]",
       "  node scripts/codex-companion.mjs cancel [job-id] [--json]"
@@ -639,7 +643,42 @@ function renderTransferResult(payload) {
     `Codex session ID: ${payload.threadId}`,
     `Resume in Codex: ${payload.resumeCommand}`
   ];
+  if (payload.receiptPath) {
+    lines.push(`Receipt: ${payload.receiptPath}`);
+  } else if (payload.receiptError) {
+    lines.push(`Receipt write failed: ${payload.receiptError}`);
+  }
   return `${lines.join("\n")}\n`;
+}
+
+function renderLastTransferReceipt(payload) {
+  if (!payload.available || !payload.receipt) {
+    return `No Codex transfer receipt found for this workspace.\nExpected receipt path: ${payload.receiptPath}\n`;
+  }
+
+  const receipt = payload.receipt;
+  const lines = [
+    "Last Codex transfer receipt:",
+    `Codex session ID: ${receipt.threadId}`,
+    `Resume in Codex: ${receipt.resumeCommand}`,
+    `Source: ${receipt.sourcePath}`,
+    `Transferred at: ${receipt.transferredAt}`,
+    `Receipt: ${receipt.receiptPath}`
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+function persistTransferReceipt(cwd, payload) {
+  try {
+    return writeTransferReceipt(cwd, payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ...payload,
+      receiptPath: null,
+      receiptError: message
+    };
+  }
 }
 
 async function executeTransfer(cwd, options = {}) {
@@ -653,10 +692,11 @@ async function executeTransfer(cwd, options = {}) {
     sourcePath,
     sessionId: path.basename(sourcePath, ".jsonl")
   };
+  const receipt = persistTransferReceipt(cwd, payload);
 
   return {
-    payload,
-    rendered: renderTransferResult(payload)
+    payload: receipt,
+    rendered: renderTransferResult(receipt)
   };
 }
 
@@ -861,6 +901,25 @@ async function handleTransfer(argv) {
     source: options.source
   });
   outputCommandResult(payload, rendered, options.json);
+}
+
+function handleLastTransfer(argv) {
+  const { options } = parseCommandInput(argv, {
+    valueOptions: ["cwd"],
+    booleanOptions: ["json"]
+  });
+
+  const cwd = resolveCommandCwd(options);
+  const receipt = readTransferReceipt(cwd);
+  const payload = {
+    available: Boolean(receipt),
+    receiptPath: receipt?.receiptPath ?? resolveTransferReceiptFile(cwd),
+    receipt
+  };
+  outputCommandResult(payload, renderLastTransferReceipt(payload), options.json);
+  if (!receipt) {
+    process.exitCode = 1;
+  }
 }
 
 async function handleTaskWorker(argv) {
@@ -1073,6 +1132,9 @@ async function main() {
       break;
     case "transfer":
       await handleTransfer(argv);
+      break;
+    case "last-transfer":
+      handleLastTransfer(argv);
       break;
     case "task-worker":
       await handleTaskWorker(argv);

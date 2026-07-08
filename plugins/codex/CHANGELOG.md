@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.10
+
+- Persist a per-workspace `last-transfer.json` receipt after successful `/codex:transfer` imports and add a `last-transfer` companion CLI subcommand so the `codex resume <session-id>` command can be recovered even if Claude Code hits a transient usage limit before presenting the command output.
+
 ## 1.0.9
 
 - Fix `/codex:transfer` against Codex app-server imports that report thread IDs and failures through completion notifications, including Claude installs under `CLAUDE_CONFIG_DIR` when the real `HOME/.claude` path is a file.

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { buildEnv, installFakeCodex } from "./fake-codex-fixture.mjs";
 import { initGitRepo, makeTempDir, run } from "./helpers.mjs";
 import { loadBrokerSession, saveBrokerSession } from "../plugins/codex/scripts/lib/broker-lifecycle.mjs";
-import { resolveStateDir } from "../plugins/codex/scripts/lib/state.mjs";
+import { readTransferReceipt, resolveStateDir } from "../plugins/codex/scripts/lib/state.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PLUGIN_ROOT = path.join(ROOT, "plugins", "codex");
@@ -234,6 +234,29 @@ test("transfer delegates the current Claude session directly to native import", 
   assert.equal(payload.resumeCommand, "codex resume thr_1");
   assert.equal(payload.sourcePath, canonicalSourcePath);
   assert.equal(payload.sessionId, sessionId);
+  assert.match(payload.receiptPath, /last-transfer\.json$/);
+
+  const receipt = readTransferReceipt(repo);
+  assert.equal(receipt.threadId, "thr_1");
+  assert.equal(receipt.resumeCommand, "codex resume thr_1");
+  assert.equal(receipt.sourcePath, canonicalSourcePath);
+  assert.equal(receipt.sessionId, sessionId);
+  assert.equal(receipt.receiptPath, payload.receiptPath);
+
+  const lastTransfer = run("node", [SCRIPT, "last-transfer", "--json"], {
+    cwd: repo,
+    env: {
+      ...buildEnv(binDir),
+      HOME: home,
+      CODEX_HOME: path.join(home, ".codex"),
+      CLAUDE_CONFIG_DIR: undefined
+    }
+  });
+  assert.equal(lastTransfer.status, 0, lastTransfer.stderr);
+  const lastTransferPayload = JSON.parse(lastTransfer.stdout);
+  assert.equal(lastTransferPayload.available, true);
+  assert.equal(lastTransferPayload.receipt.threadId, "thr_1");
+  assert.equal(lastTransferPayload.receipt.resumeCommand, "codex resume thr_1");
 
   const fakeState = JSON.parse(fs.readFileSync(path.join(binDir, "fake-codex-state.json"), "utf8"));
   assert.equal(fakeState.threads.length, 1);
@@ -287,6 +310,13 @@ test("transfer imports CLAUDE_CONFIG_DIR sessions without touching file-backed H
   assert.equal(payload.threadId, "thr_1");
   assert.equal(payload.sourcePath, canonicalSourcePath);
   assert.equal(payload.sessionId, sessionId);
+  assert.match(payload.receiptPath, /last-transfer\.json$/);
+
+  const receipt = readTransferReceipt(repo);
+  assert.equal(receipt.threadId, "thr_1");
+  assert.equal(receipt.resumeCommand, "codex resume thr_1");
+  assert.equal(receipt.sourcePath, canonicalSourcePath);
+  assert.equal(receipt.sessionId, sessionId);
 
   const fakeState = JSON.parse(fs.readFileSync(path.join(binDir, "fake-codex-state.json"), "utf8"));
   assert.notEqual(fakeState.lastExternalAgentImport.sourcePath, canonicalSourcePath);

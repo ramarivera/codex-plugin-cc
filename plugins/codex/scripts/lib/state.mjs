@@ -10,6 +10,7 @@ const PLUGIN_DATA_ENV = "CLAUDE_PLUGIN_DATA";
 const FALLBACK_STATE_ROOT_DIR = path.join(os.tmpdir(), "codex-companion");
 const STATE_FILE_NAME = "state.json";
 const JOBS_DIR_NAME = "jobs";
+const TRANSFER_RECEIPT_FILE_NAME = "last-transfer.json";
 const MAX_JOBS = 50;
 
 function nowIso() {
@@ -49,6 +50,10 @@ export function resolveStateFile(cwd) {
 
 export function resolveJobsDir(cwd) {
   return path.join(resolveStateDir(cwd), JOBS_DIR_NAME);
+}
+
+export function resolveTransferReceiptFile(cwd) {
+  return path.join(resolveStateDir(cwd), TRANSFER_RECEIPT_FILE_NAME);
 }
 
 export function ensureStateDir(cwd) {
@@ -161,6 +166,37 @@ export function setConfig(cwd, key, value) {
 
 export function getConfig(cwd) {
   return loadState(cwd).config;
+}
+
+export function writeTransferReceipt(cwd, payload) {
+  ensureStateDir(cwd);
+  const receiptPath = resolveTransferReceiptFile(cwd);
+  const receipt = {
+    version: STATE_VERSION,
+    transferredAt: nowIso(),
+    workspaceRoot: resolveWorkspaceRoot(cwd),
+    ...payload,
+    receiptPath
+  };
+  fs.writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, "utf8");
+  return receipt;
+}
+
+export function readTransferReceipt(cwd) {
+  const receiptPath = resolveTransferReceiptFile(cwd);
+  if (!fs.existsSync(receiptPath)) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(receiptPath, "utf8"));
+    return {
+      ...parsed,
+      receiptPath: parsed.receiptPath ?? receiptPath
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function writeJobFile(cwd, jobId, payload) {
