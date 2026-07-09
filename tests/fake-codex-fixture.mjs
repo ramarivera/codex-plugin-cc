@@ -324,7 +324,7 @@ rl.on("line", (line) => {
           sandbox: message.params.sandbox ?? null
         };
         const thread = nextThread(state, message.params.cwd, message.params.ephemeral);
-        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.4", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: message.params.approvalPolicy ?? "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
+        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.6-terra", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: message.params.approvalPolicy ?? "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
         send({ method: "thread/started", params: { thread: { id: thread.id } } });
         break;
       }
@@ -362,7 +362,7 @@ rl.on("line", (line) => {
           sandbox: message.params.sandbox ?? null
         };
         saveState(state);
-        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.4", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: message.params.approvalPolicy ?? "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
+        send({ id: message.id, result: { thread: buildThread(thread), model: message.params.model || "gpt-5.6-terra", modelProvider: "openai", serviceTier: null, cwd: thread.cwd, approvalPolicy: message.params.approvalPolicy ?? "never", sandbox: { type: "readOnly", access: { type: "fullAccess" }, networkAccess: false }, reasoningEffort: null } });
         break;
       }
 
